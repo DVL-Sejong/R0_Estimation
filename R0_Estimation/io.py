@@ -63,6 +63,12 @@ def load_sird_data(country):
     return sird_hash, sird_dict
 
 
+def load_r0_df(country, sird_hash):
+    r0_path = join(RESULT_PATH, get_country_name(country), sird_hash, 'r0.csv')
+    r0_df = pd.read_csv(r0_path, index_col='regions')
+    return r0_df
+
+
 def load_rho_df(country, sird_hash):
     rho_path = join(DATASET_PATH, get_country_name(country), sird_hash, 'rho.csv')
     rho_df = pd.read_csv(rho_path, index_col='regions')
@@ -73,6 +79,14 @@ def load_tg_df(country):
     tg_path = join(DATASET_PATH, get_country_name(country), 'tg.csv')
     tg_df = pd.read_csv(tg_path, index_col='regions')
     return tg_df
+
+
+def save_r0_df(country, sird_hash, r0_df):
+    r0_path = join(RESULT_PATH, get_country_name(country), sird_hash)
+    Path(r0_path).mkdir(parents=True, exist_ok=True)
+    saving_path = join(r0_path, 'r0.csv')
+    r0_df.to_csv(saving_path)
+    print(f'saving r0 dataframe to {saving_path}')
 
 
 def save_rho_df(country, sird_hash, rho_df):
