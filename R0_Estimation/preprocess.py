@@ -1,7 +1,7 @@
 from R0_Estimation.datatype import Country
-from R0_Estimation.io import load_number_of_tests, load_sird_data, load_regions, save_rho_df, load_first_confirmed_date, \
-    load_rho_df, save_tg_df
-from R0_Estimation.util import get_common_dates_between_dict_and_df, get_period
+from R0_Estimation.io import load_number_of_tests, load_sird_data, load_regions
+from R0_Estimation.io import save_rho_df, load_first_confirmed_date, save_tg_df
+from R0_Estimation.util import get_period
 from datetime import datetime
 
 import pandas as pd
@@ -66,9 +66,14 @@ def get_tg_df(country):
     return tg_df
 
 
+def get_t_value(country, region, target_date):
+    first_confirmed_df = load_first_confirmed_date(country)
+    first_date = datetime.strptime(first_confirmed_df.loc[region, 'first_date'], '%Y-%m-%d')
+    t_value = (datetime.strptime(target_date, '%Y-%m-%d') - first_date).days + 1
+    return t_value
+
+
 if __name__ == '__main__':
     country = Country.INDIA
-
-    sird_hash, sird_dict = load_sird_data(country)
-    rho_df = load_rho_df(country, sird_hash)
-    tg_df = get_tg_df(country)
+    t_value = get_t_value(country, 'West Bengal', '2020-03-19')
+    print(t_value)
