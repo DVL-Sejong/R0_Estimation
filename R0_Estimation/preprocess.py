@@ -1,4 +1,4 @@
-from R0_Estimation.datatype import Country, PreprocessInfo, get_country_name
+from R0_Estimation.datatype import Country, PreprocessInfo, get_country_name, InfoType
 from R0_Estimation.io import load_number_of_tests, load_sird_data, load_regions, load_links
 from R0_Estimation.io import save_rho_df, load_first_confirmed_date, save_tg_df
 from R0_Estimation.util import get_period
@@ -8,7 +8,7 @@ import pandas as pd
 
 
 def get_dataset_dates(country, sird_info, test_info):
-    num_test_df = load_number_of_tests(country, test_info.get_hash())
+    num_test_df = load_number_of_tests(country, test_info)
     columns = num_test_df.columns.to_list()
 
     start_date1 = None
@@ -24,7 +24,7 @@ def get_dataset_dates(country, sird_info, test_info):
     first_dates = [datetime.strptime(elem, '%Y-%m-%d') for elem in first_dates]
     start_date2 = min(first_dates)
 
-    sird_dict = load_sird_data(country, sird_info.get_hash())
+    sird_dict = load_sird_data(country, sird_info)
     sird_dates = sird_dict[list(sird_dict.keys())[0]].index.tolist()
     start_date3 = datetime.strptime(sird_dates[0], '%Y-%m-%d')
     end_date3 = datetime.strptime(sird_dates[-1], '%Y-%m-%d')
@@ -43,8 +43,8 @@ def get_rho_df(country, sird_info, test_info, delay=1):
     rho_df = pd.DataFrame(index=regions, columns=dataset_dates[delay:])
     rho_df.index.name = 'regions'
 
-    sird_dict = load_sird_data(country, sird_info.get_hash())
-    test_num_df = load_number_of_tests(country, test_info.get_hash())
+    sird_dict = load_sird_data(country, sird_info)
+    test_num_df = load_number_of_tests(country, test_info)
 
     for region in regions:
         for i, common_date in enumerate(dataset_dates):
@@ -82,10 +82,10 @@ if __name__ == '__main__':
 
     sird_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
                                increase=True, daily=True, remove_zero=True,
-                               smoothing=True, window=9, divide=False)
+                               smoothing=True, window=111, divide=False, info_type=InfoType.SIRD)
     test_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
                                increase=False, daily=True, remove_zero=True,
-                               smoothing=True, window=9, divide=False)
+                               smoothing=True, window=5, divide=False, info_type=InfoType.TEST)
     delay = 1
 
     rho_df = get_rho_df(country, sird_info, test_info, delay)

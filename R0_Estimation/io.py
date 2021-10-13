@@ -1,5 +1,6 @@
-from R0_Estimation.datatype import get_country_name, Country, PreprocessInfo
-from os.path import join, abspath, dirname, split
+from R0_Estimation.datatype import get_country_name, Country, PreprocessInfo, InfoType
+from os.path import join, abspath, dirname, split, isfile
+from dataclasses import fields
 from pathlib import Path
 from glob import glob
 
@@ -46,17 +47,28 @@ def load_first_confirmed_date(country):
     return first_confirmed_date_df
 
 
-def load_number_of_tests(country, test_hash):
+def load_number_of_tests(country, test_info):
     test_number_path = join(DATASET_PATH, get_country_name(country),
-                            'number_of_tests', test_hash, 'number_of_tests.csv')
-    test_num_df = pd.read_csv(test_number_path, index_col='regions')
-    return test_num_df
+                            'number_of_tests', test_info.get_hash(), 'number_of_tests.csv')
+
+    try:
+        test_num_df = pd.read_csv(test_number_path, index_col='regions')
+        return test_num_df
+    except FileNotFoundError:
+        print(f'number of tests dataframe in {test_number_path} is not exists!')
+        save_setting(test_info, 'req_test_info')
+        raise
 
 
-def load_sird_data(country, sird_hash):
+def load_sird_data(country, sird_info):
     print(f'load {get_country_name(country)} SIRD data')
-    country_path = join(DATASET_PATH, get_country_name(country), 'sird', sird_hash, '*.csv')
+    country_path = join(DATASET_PATH, get_country_name(country), 'sird', sird_info.get_hash(), '*.csv')
     sird_region_path_list = glob(country_path)
+
+    if len(sird_region_path_list) == 0:
+        print(f'SIRD dataset in {country_path} is not exists!')
+        save_setting(sird_info, 'req_sird_info')
+        raise FileNotFoundError(country_path)
 
     sird_dict = dict()
     for sird_path in sird_region_path_list:
@@ -123,12 +135,36 @@ def save_tg_df(country, tg_df):
     print(f'saving Tg data to {saving_path}')
 
 
+def save_setting(param_class, class_name):
+    new_param_dict = dict()
+    new_param_dict.update({'hash': param_class.get_hash()})
+
+    for field in fields(param_class):
+        if field.name[0] == '_' or field.name == 'info_type': continue
+        new_param_dict.update({field.name: getattr(param_class, field.name)})
+
+    param_df = pd.DataFrame(columns=list(new_param_dict.keys()))
+    param_df = param_df.append(new_param_dict, ignore_index=True)
+    param_df = param_df.set_index('hash')
+
+    filename = f'{class_name}.csv'
+    if isfile(join(SETTING_PATH, filename)):
+        df = pd.read_csv(join(SETTING_PATH, filename), index_col='hash')
+        if param_class.get_hash() not in df.index.tolist():
+            df = param_df.append(df, ignore_index=False)
+            df.to_csv(join(SETTING_PATH, filename))
+            print(f'updating settings to {join(SETTING_PATH, filename)}')
+    else:
+        param_df.to_csv(join(SETTING_PATH, filename))
+        print(f'saving settings to {join(SETTING_PATH, filename)}')
+
+
 if __name__ == '__main__':
     country = Country.INDIA
     link_df = load_links(country)
 
     sird_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
                                increase=True, daily=True, remove_zero=True,
-                               smoothing=True, window=9, divide=False)
+                               smoothing=True, window=9, divide=False, info_type=InfoType.SIRD)
 
-    load_sird_data(country, sird_info.get_hash())
+    load_sird_data(country, sird_info)

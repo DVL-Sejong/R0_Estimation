@@ -12,6 +12,11 @@ class Country(Enum):
     US = 2
 
 
+class InfoType(Enum):
+    SIRD = 0
+    TEST = 1
+
+
 @dataclass
 class PreprocessInfo:
     country: Country = None
@@ -32,10 +37,12 @@ class PreprocessInfo:
     _window: int = field(default=False)
     divide: bool = None
     _divide: bool = field(default=True)
+    info_type: InfoType = None
+    _info_type: InfoType = field(default=True)
 
     def __init__(self, country, start, end,
                  increase: bool, daily: bool, remove_zero: bool,
-                 smoothing: bool, window: int, divide: bool):
+                 smoothing: bool, window: int, divide: bool, info_type: InfoType):
         self.country = country
         self.start = start
         self.end = end
@@ -45,6 +52,7 @@ class PreprocessInfo:
         self.smoothing = smoothing
         self.window = window
         self.divide = divide
+        self.info_type = info_type
 
     def __repr__(self):
         representation = f'PreprocessInfo(country: {self._country.name}, start: {self._start}, end: {self._end}, '
@@ -162,6 +170,14 @@ class PreprocessInfo:
     @divide.setter
     def divide(self, divide: bool):
         self._divide = divide
+
+    @property
+    def info_type(self) -> InfoType:
+        return self._info_type
+
+    @info_type.setter
+    def info_type(self, info_type: InfoType):
+        self._info_type = info_type
 
     def get_hash(self):
         hash_key = hashlib.sha1(self.__repr__().encode()).hexdigest()[:6]
