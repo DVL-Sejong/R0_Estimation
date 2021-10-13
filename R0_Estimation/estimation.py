@@ -1,7 +1,7 @@
 from R0_Estimation.datatype import Country, PreprocessInfo
 from R0_Estimation.io import load_sird_data, load_rho_df, load_tg_df, load_regions
 from R0_Estimation.io import save_r0_df, load_population, load_number_of_tests, load_links
-from R0_Estimation.preprocess import get_t_value
+from R0_Estimation.preprocess import get_t_value, get_rho_df
 
 import pandas as pd
 import math
@@ -9,7 +9,9 @@ import math
 
 def get_estimate_r0_df(country, sird_info, test_info, delay):
     sird_dict = load_sird_data(country, sird_info.get_hash())
-    rho_df = load_rho_df(country, sird_info.get_hash(), test_info.get_hash(), delay)
+    rho_df = load_rho_df(country, sird_info, test_info, delay)
+    if rho_df is None:
+        rho_df = get_rho_df(country, sird_info, test_info, delay)
     tg_df = load_tg_df(country)
 
     regions = load_regions(country)
@@ -52,7 +54,7 @@ if __name__ == '__main__':
                               smoothing=True, window=9, divide=False)
     test_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
                                increase=False, daily=True, remove_zero=True,
-                               smoothing=True, window=9, divide=False)
+                               smoothing=True, window=5, divide=False)
     delay = 1
 
     r0_df = get_estimate_r0_df(country, sird_info, test_info, delay)

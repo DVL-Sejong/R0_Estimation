@@ -5,7 +5,6 @@ from glob import glob
 
 import pandas as pd
 
-
 ROOT_PATH = Path(abspath(dirname(__file__))).parent
 DATASET_PATH = join(ROOT_PATH, 'dataset')
 SETTING_PATH = join(ROOT_PATH, 'settings')
@@ -80,10 +79,16 @@ def load_r0_df(country, sird_hash, test_hash, delay):
     return r0_df
 
 
-def load_rho_df(country, sird_hash, test_hash, delay):
+def load_rho_df(country, sird_info, test_info, delay):
+    print(f'load {get_country_name(country)} rho dataframe')
     rho_path = join(DATASET_PATH, get_country_name(country), 'rho',
-                    f'{sird_hash}_{test_hash}_{delay}', 'rho.csv')
-    rho_df = pd.read_csv(rho_path, index_col='regions')
+                    f'{sird_info.get_hash()}_{test_info.get_hash()}_{delay}', 'rho.csv')
+    try:
+        rho_df = pd.read_csv(rho_path, index_col='regions')
+    except FileNotFoundError:
+        print(f'rho dataframe in {rho_path} is not exists!')
+        rho_df = None
+
     return rho_df
 
 

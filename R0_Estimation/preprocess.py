@@ -1,4 +1,4 @@
-from R0_Estimation.datatype import Country, PreprocessInfo
+from R0_Estimation.datatype import Country, PreprocessInfo, get_country_name
 from R0_Estimation.io import load_number_of_tests, load_sird_data, load_regions, load_links
 from R0_Estimation.io import save_rho_df, load_first_confirmed_date, save_tg_df
 from R0_Estimation.util import get_period
@@ -36,6 +36,7 @@ def get_dataset_dates(country, sird_info, test_info):
 
 
 def get_rho_df(country, sird_info, test_info, delay=1):
+    print(f'get rho of {get_country_name(country)}')
     regions = load_regions(country)
     dataset_dates = get_dataset_dates(country, sird_info, test_info)
 
