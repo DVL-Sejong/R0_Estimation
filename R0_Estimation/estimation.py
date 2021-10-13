@@ -1,15 +1,15 @@
-from R0_Estimation.datatype import Country
-from R0_Estimation.io import load_sird_data, load_rho_df, load_tg_df, load_regions, save_r0_df, load_population, \
-    load_number_of_tests
+from R0_Estimation.datatype import Country, PreprocessInfo
+from R0_Estimation.io import load_sird_data, load_rho_df, load_tg_df, load_regions
+from R0_Estimation.io import save_r0_df, load_population, load_number_of_tests, load_links
 from R0_Estimation.preprocess import get_t_value
 
 import pandas as pd
 import math
 
 
-def get_estimate_r0_df(country):
-    sird_hash, sird_dict = load_sird_data(country)
-    rho_df = load_rho_df(country, sird_hash)
+def get_estimate_r0_df(country, sird_info, test_info, delay):
+    sird_dict = load_sird_data(country, sird_info.get_hash())
+    rho_df = load_rho_df(country, sird_info.get_hash(), test_info.get_hash(), delay)
     tg_df = load_tg_df(country)
 
     regions = load_regions(country)
@@ -19,7 +19,7 @@ def get_estimate_r0_df(country):
     r0_df.index.name = 'regions'
 
     population_df = load_population(country)
-    test_num_df = load_number_of_tests(country)
+    test_num_df = load_number_of_tests(country, test_info.get_hash())
 
     for region in regions:
         print(f'estmate r0 value in {region}')
@@ -39,10 +39,20 @@ def get_estimate_r0_df(country):
             r0 = 1 + lamda * tg + rho * (1 - rho) * pow(lamda * tg, 2)
             r0_df.loc[region, estimate_date] = r0
 
-    save_r0_df(country, sird_hash, r0_df)
+    save_r0_df(r0_df, country, sird_info.get_hash(), test_info.get_hash(), delay)
     return r0_df
 
 
 if __name__ == '__main__':
-    country = Country.INDIA
-    r0_df = get_estimate_r0_df(country)
+    country = Country.US
+    link_df = load_links(country)
+
+    sird_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
+                              increase=True, daily=True, remove_zero=True,
+                              smoothing=True, window=9, divide=False)
+    test_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
+                               increase=False, daily=True, remove_zero=True,
+                               smoothing=True, window=9, divide=False)
+    delay = 1
+
+    r0_df = get_estimate_r0_df(country, sird_info, test_info, delay)

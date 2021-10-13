@@ -1,8 +1,7 @@
-from R0_Estimation.datatype import get_country_name, Country
-from os.path import join, abspath, dirname, isdir, split
+from R0_Estimation.datatype import get_country_name, Country, PreprocessInfo
+from os.path import join, abspath, dirname, split
 from pathlib import Path
 from glob import glob
-from os import listdir
 
 import pandas as pd
 
@@ -11,6 +10,16 @@ ROOT_PATH = Path(abspath(dirname(__file__))).parent
 DATASET_PATH = join(ROOT_PATH, 'dataset')
 SETTING_PATH = join(ROOT_PATH, 'settings')
 RESULT_PATH = join(ROOT_PATH, 'results')
+
+
+def load_links(country=None):
+    link_path = join(DATASET_PATH, 'links.csv')
+    link_df = pd.read_csv(link_path, index_col='country')
+
+    if country is not None:
+        link_df = link_df.loc[get_country_name(country), :]
+
+    return link_df
 
 
 def load_population(country):
@@ -38,16 +47,17 @@ def load_first_confirmed_date(country):
     return first_confirmed_date_df
 
 
-def load_number_of_tests(country):
-    test_number_path = join(DATASET_PATH, get_country_name(country), 'number_of_tests.csv')
+def load_number_of_tests(country, test_hash):
+    test_number_path = join(DATASET_PATH, get_country_name(country),
+                            'number_of_tests', test_hash, 'number_of_tests.csv')
     test_num_df = pd.read_csv(test_number_path, index_col='regions')
     return test_num_df
 
 
-def load_sird_data(country):
-    country_path = join(DATASET_PATH, get_country_name(country))
-    sird_hash = [item for item in listdir(country_path) if isdir(join(country_path, item))][0]
-    sird_region_path_list = glob(join(country_path, sird_hash, '*.csv'))
+def load_sird_data(country, sird_hash):
+    print(f'load {get_country_name(country)} SIRD data')
+    country_path = join(DATASET_PATH, get_country_name(country), 'sird', sird_hash, '*.csv')
+    sird_region_path_list = glob(country_path)
 
     sird_dict = dict()
     for sird_path in sird_region_path_list:
@@ -60,17 +70,19 @@ def load_sird_data(country):
         region_df = pd.read_csv(sird_path, index_col='date')
         sird_dict.update({region: region_df})
 
-    return sird_hash, sird_dict
+    return sird_dict
 
 
-def load_r0_df(country, sird_hash):
-    r0_path = join(RESULT_PATH, get_country_name(country), sird_hash, 'r0.csv')
+def load_r0_df(country, sird_hash, test_hash, delay):
+    r0_path = join(RESULT_PATH, get_country_name(country),
+                   f'{sird_hash}_{test_hash}_{delay}', 'r0.csv')
     r0_df = pd.read_csv(r0_path, index_col='regions')
     return r0_df
 
 
-def load_rho_df(country, sird_hash):
-    rho_path = join(DATASET_PATH, get_country_name(country), sird_hash, 'rho.csv')
+def load_rho_df(country, sird_hash, test_hash, delay):
+    rho_path = join(DATASET_PATH, get_country_name(country), 'rho',
+                    f'{sird_hash}_{test_hash}_{delay}', 'rho.csv')
     rho_df = pd.read_csv(rho_path, index_col='regions')
     return rho_df
 
@@ -81,16 +93,17 @@ def load_tg_df(country):
     return tg_df
 
 
-def save_r0_df(country, sird_hash, r0_df):
-    r0_path = join(RESULT_PATH, get_country_name(country), sird_hash)
+def save_r0_df(r0_df, country, sird_hash, test_hash, delay):
+    r0_path = join(RESULT_PATH, get_country_name(country), f'{sird_hash}_{test_hash}_{delay}')
     Path(r0_path).mkdir(parents=True, exist_ok=True)
     saving_path = join(r0_path, 'r0.csv')
     r0_df.to_csv(saving_path)
     print(f'saving r0 dataframe to {saving_path}')
 
 
-def save_rho_df(country, sird_hash, rho_df):
-    rho_path = join(DATASET_PATH, get_country_name(country), sird_hash)
+def save_rho_df(rho_df, country, sird_hash, test_hash, delay):
+    rho_path = join(DATASET_PATH, get_country_name(country), 'rho',
+                    f'{sird_hash}_{test_hash}_{delay}')
     Path(rho_path).mkdir(parents=True, exist_ok=True)
     saving_path = join(rho_path, 'rho.csv')
     rho_df.to_csv(saving_path)
@@ -107,4 +120,10 @@ def save_tg_df(country, tg_df):
 
 if __name__ == '__main__':
     country = Country.INDIA
-    load_sird_data(country)
+    link_df = load_links(country)
+
+    sird_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
+                               increase=True, daily=True, remove_zero=True,
+                               smoothing=True, window=9, divide=False)
+
+    load_sird_data(country, sird_info.get_hash())
