@@ -6,6 +6,7 @@ from glob import glob
 
 import pandas as pd
 
+
 ROOT_PATH = Path(abspath(dirname(__file__))).parent
 DATASET_PATH = join(ROOT_PATH, 'dataset')
 SETTING_PATH = join(ROOT_PATH, 'settings')
@@ -49,15 +50,29 @@ def load_first_confirmed_date(country):
 
 def load_number_of_tests(country, test_info):
     test_number_path = join(DATASET_PATH, get_country_name(country),
-                            'number_of_tests', test_info.get_hash(), 'number_of_tests.csv')
+                            'number_of_tests', test_info.get_hash())
 
     try:
-        test_num_df = pd.read_csv(test_number_path, index_col='regions')
-        return test_num_df
+        origin_path = join(test_number_path, 'number_of_tests.csv')
+        origin_test_num_df = pd.read_csv(origin_path, index_col='regions')
+        return origin_test_num_df
     except FileNotFoundError:
         print(f'number of tests dataframe in {test_number_path} is not exists!')
         save_setting(test_info, 'req_test_info')
         raise
+
+
+def load_delayed_number_of_tests(country, test_info, delay):
+    test_number_path = join(DATASET_PATH, get_country_name(country),
+                            'number_of_tests', test_info.get_hash())
+
+    try:
+        delay_path = join(test_number_path, f'number_of_tests_{delay}.csv')
+        test_num_df = pd.read_csv(delay_path, index_col='regions')
+        return test_num_df
+    except FileNotFoundError:
+        print(f'delayed number of tests dataframe in {test_number_path} is not exists!')
+        return None
 
 
 def load_sird_data(country, sird_info):
@@ -82,6 +97,13 @@ def load_sird_data(country, sird_info):
         sird_dict.update({region: region_df})
 
     return sird_dict
+
+
+def save_delayed_number_of_tests(delayed_test_num_df, country, test_info, delay):
+    test_number_path = join(DATASET_PATH, get_country_name(country),
+                            'number_of_tests', test_info.get_hash(), f'number_of_tests_{delay}.csv')
+    delayed_test_num_df.to_csv(test_number_path)
+    print(f'saving number of tests dataframe to {test_number_path}')
 
 
 def load_r0_df(country, sird_hash, test_hash, delay):

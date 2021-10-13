@@ -1,5 +1,6 @@
 from R0_Estimation.datatype import Country, PreprocessInfo, get_country_name, InfoType
 from R0_Estimation.io import load_number_of_tests, load_sird_data, load_regions, load_links
+from R0_Estimation.io import save_delayed_number_of_tests, load_delayed_number_of_tests
 from R0_Estimation.io import save_rho_df, load_first_confirmed_date, save_tg_df
 from R0_Estimation.util import get_period
 from datetime import datetime
@@ -7,8 +8,34 @@ from datetime import datetime
 import pandas as pd
 
 
-def get_dataset_dates(country, sird_info, test_info):
-    num_test_df = load_number_of_tests(country, test_info)
+def get_delayed_number_of_tests(country, test_info, delay):
+    delayed_tests_df = load_delayed_number_of_tests(country, test_info, delay)
+    if delayed_tests_df is not None:
+        return delayed_tests_df
+
+    if delay == 0:
+        raise ValueError('delay can not be zero!')
+
+    test_num_df = load_number_of_tests(country, test_info)
+
+    if delay == 1:
+        save_delayed_number_of_tests(test_num_df, country, test_info, delay)
+        return test_num_df
+
+    delayed_num_df = test_num_df.copy().iloc[:, delay:]
+    for region, row in test_num_df.iterrows():
+        for i, date in enumerate(test_num_df.columns):
+            if i < delay: continue
+
+            new_value = sum([row[test_num_df.columns[i - j]] for j in range(delay)])
+            delayed_num_df.loc[region, date] = new_value
+
+    save_delayed_number_of_tests(delayed_num_df, country, test_info, delay)
+    return delayed_num_df
+
+
+def get_dataset_dates(country, sird_info, test_info, delay):
+    num_test_df = get_delayed_number_of_tests(country, test_info, delay)
     columns = num_test_df.columns.to_list()
 
     start_date1 = None
@@ -37,23 +64,20 @@ def get_dataset_dates(country, sird_info, test_info):
 
 def get_rho_df(country, sird_info, test_info, delay=1):
     print(f'get rho of {get_country_name(country)}')
+    sird_dict = load_sird_data(country, sird_info)
+    test_num_df = get_delayed_number_of_tests(country, test_info, delay)
+
     regions = load_regions(country)
-    dataset_dates = get_dataset_dates(country, sird_info, test_info)
+    dataset_dates = get_dataset_dates(country, sird_info, test_info, delay)
 
     rho_df = pd.DataFrame(index=regions, columns=dataset_dates[delay:])
     rho_df.index.name = 'regions'
 
-    sird_dict = load_sird_data(country, sird_info)
-    test_num_df = load_number_of_tests(country, test_info)
-
     for region in regions:
         for i, common_date in enumerate(dataset_dates):
-            if i < delay: continue
-
             confirmed_value = sird_dict[region].loc[common_date, 'infected']
-            test_numbers = sum([test_num_df.loc[region, dataset_dates[i - j]] for j in range(delay)])
-            rho_value = confirmed_value / test_numbers
-            rho_df.loc[region, common_date] = rho_value
+            test_numbers = test_num_df.loc[region, common_date]
+            rho_df.loc[region, common_date] = confirmed_value / test_numbers
 
     save_rho_df(rho_df, country, sird_info.get_hash(), test_info.get_hash(), delay)
     return rho_df
@@ -77,15 +101,15 @@ def get_t_value(country, region, target_date):
 
 
 if __name__ == '__main__':
-    country = Country.US
+    country = Country.ITALY
     link_df = load_links(country)
 
     sird_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
                                increase=True, daily=True, remove_zero=True,
-                               smoothing=True, window=111, divide=False, info_type=InfoType.SIRD)
+                               smoothing=True, window=5, divide=False, info_type=InfoType.SIRD)
     test_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
                                increase=False, daily=True, remove_zero=True,
                                smoothing=True, window=5, divide=False, info_type=InfoType.TEST)
-    delay = 1
+    delay = 14
 
     rho_df = get_rho_df(country, sird_info, test_info, delay)

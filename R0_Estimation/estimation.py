@@ -1,7 +1,7 @@
 from R0_Estimation.datatype import Country, PreprocessInfo, InfoType
 from R0_Estimation.io import load_sird_data, load_rho_df, load_tg_df, load_regions
-from R0_Estimation.io import save_r0_df, load_population, load_number_of_tests, load_links
-from R0_Estimation.preprocess import get_t_value, get_rho_df
+from R0_Estimation.io import save_r0_df, load_population, load_links
+from R0_Estimation.preprocess import get_t_value, get_rho_df, get_delayed_number_of_tests
 
 import pandas as pd
 import math
@@ -21,7 +21,7 @@ def get_estimate_r0_df(country, sird_info, test_info, delay):
     r0_df.index.name = 'regions'
 
     population_df = load_population(country)
-    test_num_df = load_number_of_tests(country, test_info)
+    test_num_df = get_delayed_number_of_tests(country, test_info, delay)
 
     for region in regions:
         print(f'estmate r0 value in {region}')
@@ -35,7 +35,7 @@ def get_estimate_r0_df(country, sird_info, test_info, delay):
             suspect = (1 + (infected/region_population)) * test_num
             y_t = suspect * rho + infected
             t_value = get_t_value(country, region, estimate_date)
-            log_y = 0 if y_t == 0 else math.log(y_t)
+            log_y = 0 if y_t == -100 else math.log(y_t)
             lamda = log_y / t_value
             tg = tg_df.loc[region, 'Tg']
             r0 = 1 + lamda * tg + rho * (1 - rho) * pow(lamda * tg, 2)
@@ -51,7 +51,7 @@ if __name__ == '__main__':
 
     sird_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
                               increase=True, daily=True, remove_zero=True,
-                              smoothing=True, window=9, divide=False, info_type=InfoType.SIRD)
+                              smoothing=True, window=5, divide=False, info_type=InfoType.SIRD)
     test_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
                                increase=False, daily=True, remove_zero=True,
                                smoothing=True, window=5, divide=False, info_type=InfoType.TEST)
