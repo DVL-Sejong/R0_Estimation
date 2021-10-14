@@ -58,7 +58,6 @@ def load_number_of_tests(country, test_info):
         return origin_test_num_df
     except FileNotFoundError as e:
         print(e)
-        # print(f'number of tests dataframe in {test_number_path} is not exists!')
         save_setting(test_info, 'req_test_info')
         return None
 
@@ -73,7 +72,6 @@ def load_delayed_number_of_tests(country, test_info, delay):
         return test_num_df
     except FileNotFoundError as e:
         print(e)
-        # print(f'delayed number of tests dataframe in {test_number_path} is not exists!')
         return None
 
 
@@ -101,6 +99,27 @@ def load_sird_data(country, sird_info):
     return sird_dict
 
 
+def load_debug_dict(country, sird_hash, test_hash, delay):
+    print(f'load variables for debugging in {get_country_name(country)}')
+    debug_path = join(RESULT_PATH, get_country_name(country), f'{sird_hash}_{test_hash}_{delay}', '*.csv')
+    debug_path_list = glob(debug_path)
+
+    if len(debug_path_list) == 0:
+        print(f'Variables used for estimating r0 are not existing!')
+        raise FileNotFoundError(debug_path)
+
+    debug_dict = dict()
+    for variable_path in debug_path_list:
+        _, variable_name = split(variable_path)
+        variable_name = variable_name.split('.csv')[0]
+        if variable_name == 'r0': continue
+
+        variable_df = pd.read_csv(variable_path, index_col='regions')
+        debug_dict.update({variable_name: variable_df})
+
+    return debug_dict
+
+
 def save_delayed_number_of_tests(delayed_test_num_df, country, test_info, delay):
     test_number_path = join(DATASET_PATH, get_country_name(country),
                             'number_of_tests', test_info.get_hash(), f'number_of_tests_{delay}.csv')
@@ -124,7 +143,6 @@ def load_rho_df(country, sird_info, test_info, delay):
         return rho_df
     except FileNotFoundError as e:
         print(e)
-        # print(f'rho dataframe in {rho_path} is not exists!')
         return None
 
 
@@ -199,6 +217,10 @@ if __name__ == '__main__':
 
     sird_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
                                increase=True, daily=True, remove_zero=True,
-                               smoothing=True, window=9, divide=False, info_type=InfoType.SIRD)
+                               smoothing=True, window=5, divide=False, info_type=InfoType.SIRD)
+    test_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
+                               increase=False, daily=True, remove_zero=True,
+                               smoothing=True, window=5, divide=False, info_type=InfoType.TEST)
+    delay = 1
 
-    load_sird_data(country, sird_info)
+    load_debug_dict(country, sird_info.get_hash(), test_info.get_hash(), delay)
