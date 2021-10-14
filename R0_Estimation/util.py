@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 
+import pandas as pd
+
 
 def get_period(start_date, end_date, out_date_format=None):
     if type(start_date) == str:
@@ -54,3 +56,9 @@ def get_common_dates_between_dict_and_df(data_dict, data_df):
 
     common_dates = get_common_dates(dict_dates, df_dates)
     return common_dates
+
+
+def generate_dataframe(index, columns, index_name):
+    df = pd.DataFrame(index=index, columns=columns)
+    df.index.name = index_name
+    return df

@@ -56,10 +56,11 @@ def load_number_of_tests(country, test_info):
         origin_path = join(test_number_path, 'number_of_tests.csv')
         origin_test_num_df = pd.read_csv(origin_path, index_col='regions')
         return origin_test_num_df
-    except FileNotFoundError:
-        print(f'number of tests dataframe in {test_number_path} is not exists!')
+    except FileNotFoundError as e:
+        print(e)
+        # print(f'number of tests dataframe in {test_number_path} is not exists!')
         save_setting(test_info, 'req_test_info')
-        raise
+        return None
 
 
 def load_delayed_number_of_tests(country, test_info, delay):
@@ -70,8 +71,9 @@ def load_delayed_number_of_tests(country, test_info, delay):
         delay_path = join(test_number_path, f'number_of_tests_{delay}.csv')
         test_num_df = pd.read_csv(delay_path, index_col='regions')
         return test_num_df
-    except FileNotFoundError:
-        print(f'delayed number of tests dataframe in {test_number_path} is not exists!')
+    except FileNotFoundError as e:
+        print(e)
+        # print(f'delayed number of tests dataframe in {test_number_path} is not exists!')
         return None
 
 
@@ -119,11 +121,11 @@ def load_rho_df(country, sird_info, test_info, delay):
                     f'{sird_info.get_hash()}_{test_info.get_hash()}_{delay}', 'rho.csv')
     try:
         rho_df = pd.read_csv(rho_path, index_col='regions')
-    except FileNotFoundError:
-        print(f'rho dataframe in {rho_path} is not exists!')
-        rho_df = None
-
-    return rho_df
+        return rho_df
+    except FileNotFoundError as e:
+        print(e)
+        # print(f'rho dataframe in {rho_path} is not exists!')
+        return None
 
 
 def load_tg_df(country):
@@ -155,6 +157,16 @@ def save_tg_df(country, tg_df):
     saving_path = join(tg_path, 'tg.csv')
     tg_df.to_csv(saving_path)
     print(f'saving Tg data to {saving_path}')
+
+
+def save_debug_dict(debug_dict, country, sird_hash, test_hash, delay):
+    debug_path = join(RESULT_PATH, get_country_name(country), f'{sird_hash}_{test_hash}_{delay}')
+    Path(debug_path).mkdir(parents=True, exist_ok=True)
+
+    for key, debug_df in debug_dict.items():
+        key_path = join(debug_path, f'{key}.csv')
+        debug_df.to_csv(key_path)
+        print(f'saving {key} values to {key_path}')
 
 
 def save_setting(param_class, class_name):

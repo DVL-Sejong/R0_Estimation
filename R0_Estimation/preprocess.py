@@ -1,17 +1,17 @@
 from R0_Estimation.datatype import Country, PreprocessInfo, get_country_name, InfoType
-from R0_Estimation.io import load_number_of_tests, load_sird_data, load_regions, load_links
+from R0_Estimation.io import load_number_of_tests, load_sird_data, load_regions, load_links, load_rho_df
 from R0_Estimation.io import save_delayed_number_of_tests, load_delayed_number_of_tests
 from R0_Estimation.io import save_rho_df, load_first_confirmed_date, save_tg_df
-from R0_Estimation.util import get_period
+from R0_Estimation.util import get_period, generate_dataframe
 from datetime import datetime
-
-import pandas as pd
 
 
 def get_delayed_number_of_tests(country, test_info, delay):
     delayed_tests_df = load_delayed_number_of_tests(country, test_info, delay)
     if delayed_tests_df is not None:
         return delayed_tests_df
+
+    print(f'get number of tests of {get_country_name(country)}')
 
     if delay == 0:
         raise ValueError('delay can not be zero!')
@@ -63,15 +63,17 @@ def get_dataset_dates(country, sird_info, test_info, delay):
 
 
 def get_rho_df(country, sird_info, test_info, delay=1):
+    rho_df = load_rho_df(country, sird_info, test_info, delay)
+    if rho_df is not None:
+        return rho_df
+
     print(f'get rho of {get_country_name(country)}')
     sird_dict = load_sird_data(country, sird_info)
     test_num_df = get_delayed_number_of_tests(country, test_info, delay)
 
     regions = load_regions(country)
     dataset_dates = get_dataset_dates(country, sird_info, test_info, delay)
-
-    rho_df = pd.DataFrame(index=regions, columns=dataset_dates[delay:])
-    rho_df.index.name = 'regions'
+    rho_df = generate_dataframe(regions, dataset_dates[delay:], 'regions')
 
     for region in regions:
         for i, common_date in enumerate(dataset_dates):
@@ -84,11 +86,8 @@ def get_rho_df(country, sird_info, test_info, delay=1):
 
 
 def get_tg_df(country):
-    regions = load_regions(country)
-    tg_df = pd.DataFrame(index=regions, columns=['Tg'])
-    tg_df.index.name = 'regions'
+    tg_df = generate_dataframe(load_regions(country), ['Tg'], 'regions')
     tg_df.loc[:, :] = 6.9
-
     save_tg_df(country, tg_df)
     return tg_df
 
