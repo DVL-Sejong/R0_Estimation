@@ -1,8 +1,8 @@
-from R0_Estimation.datatype import get_country_name, Country
-from os.path import join, abspath, dirname, isdir, split
+from R0_Estimation.datatype import get_country_name, Country, PreprocessInfo, InfoType
+from os.path import join, abspath, dirname, split, isfile
+from dataclasses import fields
 from pathlib import Path
 from glob import glob
-from os import listdir
 
 import pandas as pd
 
@@ -11,6 +11,16 @@ ROOT_PATH = Path(abspath(dirname(__file__))).parent
 DATASET_PATH = join(ROOT_PATH, 'dataset')
 SETTING_PATH = join(ROOT_PATH, 'settings')
 RESULT_PATH = join(ROOT_PATH, 'results')
+
+
+def load_links(country=None):
+    link_path = join(DATASET_PATH, 'links.csv')
+    link_df = pd.read_csv(link_path, index_col='country')
+
+    if country is not None:
+        link_df = link_df.loc[get_country_name(country), :]
+
+    return link_df
 
 
 def load_population(country):
@@ -38,16 +48,42 @@ def load_first_confirmed_date(country):
     return first_confirmed_date_df
 
 
-def load_number_of_tests(country):
-    test_number_path = join(DATASET_PATH, get_country_name(country), 'number_of_tests.csv')
-    test_num_df = pd.read_csv(test_number_path, index_col='regions')
-    return test_num_df
+def load_number_of_tests(country, test_info):
+    test_number_path = join(DATASET_PATH, get_country_name(country),
+                            'number_of_tests', test_info.get_hash())
+
+    try:
+        origin_path = join(test_number_path, 'number_of_tests.csv')
+        origin_test_num_df = pd.read_csv(origin_path, index_col='regions')
+        return origin_test_num_df
+    except FileNotFoundError as e:
+        print(e)
+        save_setting(test_info, 'req_test_info')
+        return None
 
 
-def load_sird_data(country):
-    country_path = join(DATASET_PATH, get_country_name(country))
-    sird_hash = [item for item in listdir(country_path) if isdir(join(country_path, item))][0]
-    sird_region_path_list = glob(join(country_path, sird_hash, '*.csv'))
+def load_delayed_number_of_tests(country, test_info, delay):
+    test_number_path = join(DATASET_PATH, get_country_name(country),
+                            'number_of_tests', test_info.get_hash())
+
+    try:
+        delay_path = join(test_number_path, f'number_of_tests_{delay}.csv')
+        test_num_df = pd.read_csv(delay_path, index_col='regions')
+        return test_num_df
+    except FileNotFoundError as e:
+        print(e)
+        return None
+
+
+def load_sird_data(country, sird_info):
+    print(f'load {get_country_name(country)} SIRD data')
+    country_path = join(DATASET_PATH, get_country_name(country), 'sird', sird_info.get_hash(), '*.csv')
+    sird_region_path_list = glob(country_path)
+
+    if len(sird_region_path_list) == 0:
+        print(f'SIRD dataset in {country_path} is not exists!')
+        save_setting(sird_info, 'req_sird_info')
+        raise FileNotFoundError(country_path)
 
     sird_dict = dict()
     for sird_path in sird_region_path_list:
@@ -60,19 +96,54 @@ def load_sird_data(country):
         region_df = pd.read_csv(sird_path, index_col='date')
         sird_dict.update({region: region_df})
 
-    return sird_hash, sird_dict
+    return sird_dict
 
 
-def load_r0_df(country, sird_hash):
-    r0_path = join(RESULT_PATH, get_country_name(country), sird_hash, 'r0.csv')
+def load_debug_dict(country, sird_hash, test_hash, delay):
+    print(f'load variables for debugging in {get_country_name(country)}')
+    debug_path = join(RESULT_PATH, get_country_name(country), f'{sird_hash}_{test_hash}_{delay}', '*.csv')
+    debug_path_list = glob(debug_path)
+
+    if len(debug_path_list) == 0:
+        print(f'Variables used for estimating r0 are not existing!')
+        raise FileNotFoundError(debug_path)
+
+    debug_dict = dict()
+    for variable_path in debug_path_list:
+        _, variable_name = split(variable_path)
+        variable_name = variable_name.split('.csv')[0]
+        if variable_name == 'r0': continue
+
+        variable_df = pd.read_csv(variable_path, index_col='regions')
+        debug_dict.update({variable_name: variable_df})
+
+    return debug_dict
+
+
+def save_delayed_number_of_tests(delayed_test_num_df, country, test_info, delay):
+    test_number_path = join(DATASET_PATH, get_country_name(country),
+                            'number_of_tests', test_info.get_hash(), f'number_of_tests_{delay}.csv')
+    delayed_test_num_df.to_csv(test_number_path)
+    print(f'saving number of tests dataframe to {test_number_path}')
+
+
+def load_r0_df(country, sird_hash, test_hash, delay):
+    r0_path = join(RESULT_PATH, get_country_name(country),
+                   f'{sird_hash}_{test_hash}_{delay}', 'r0.csv')
     r0_df = pd.read_csv(r0_path, index_col='regions')
     return r0_df
 
 
-def load_rho_df(country, sird_hash):
-    rho_path = join(DATASET_PATH, get_country_name(country), sird_hash, 'rho.csv')
-    rho_df = pd.read_csv(rho_path, index_col='regions')
-    return rho_df
+def load_rho_df(country, sird_info, test_info, delay):
+    print(f'load {get_country_name(country)} rho dataframe')
+    rho_path = join(DATASET_PATH, get_country_name(country), 'rho',
+                    f'{sird_info.get_hash()}_{test_info.get_hash()}_{delay}', 'rho.csv')
+    try:
+        rho_df = pd.read_csv(rho_path, index_col='regions')
+        return rho_df
+    except FileNotFoundError as e:
+        print(e)
+        return None
 
 
 def load_tg_df(country):
@@ -81,16 +152,17 @@ def load_tg_df(country):
     return tg_df
 
 
-def save_r0_df(country, sird_hash, r0_df):
-    r0_path = join(RESULT_PATH, get_country_name(country), sird_hash)
+def save_r0_df(r0_df, country, sird_hash, test_hash, delay):
+    r0_path = join(RESULT_PATH, get_country_name(country), f'{sird_hash}_{test_hash}_{delay}')
     Path(r0_path).mkdir(parents=True, exist_ok=True)
     saving_path = join(r0_path, 'r0.csv')
     r0_df.to_csv(saving_path)
     print(f'saving r0 dataframe to {saving_path}')
 
 
-def save_rho_df(country, sird_hash, rho_df):
-    rho_path = join(DATASET_PATH, get_country_name(country), sird_hash)
+def save_rho_df(rho_df, country, sird_hash, test_hash, delay):
+    rho_path = join(DATASET_PATH, get_country_name(country), 'rho',
+                    f'{sird_hash}_{test_hash}_{delay}')
     Path(rho_path).mkdir(parents=True, exist_ok=True)
     saving_path = join(rho_path, 'rho.csv')
     rho_df.to_csv(saving_path)
@@ -105,6 +177,50 @@ def save_tg_df(country, tg_df):
     print(f'saving Tg data to {saving_path}')
 
 
+def save_debug_dict(debug_dict, country, sird_hash, test_hash, delay):
+    debug_path = join(RESULT_PATH, get_country_name(country), f'{sird_hash}_{test_hash}_{delay}')
+    Path(debug_path).mkdir(parents=True, exist_ok=True)
+
+    for key, debug_df in debug_dict.items():
+        key_path = join(debug_path, f'{key}.csv')
+        debug_df.to_csv(key_path)
+        print(f'saving {key} values to {key_path}')
+
+
+def save_setting(param_class, class_name):
+    new_param_dict = dict()
+    new_param_dict.update({'hash': param_class.get_hash()})
+
+    for field in fields(param_class):
+        if field.name[0] == '_' or field.name == 'info_type': continue
+        new_param_dict.update({field.name: getattr(param_class, field.name)})
+
+    param_df = pd.DataFrame(columns=list(new_param_dict.keys()))
+    param_df = param_df.append(new_param_dict, ignore_index=True)
+    param_df = param_df.set_index('hash')
+
+    filename = f'{class_name}.csv'
+    if isfile(join(SETTING_PATH, filename)):
+        df = pd.read_csv(join(SETTING_PATH, filename), index_col='hash')
+        if param_class.get_hash() not in df.index.tolist():
+            df = param_df.append(df, ignore_index=False)
+            df.to_csv(join(SETTING_PATH, filename))
+            print(f'updating settings to {join(SETTING_PATH, filename)}')
+    else:
+        param_df.to_csv(join(SETTING_PATH, filename))
+        print(f'saving settings to {join(SETTING_PATH, filename)}')
+
+
 if __name__ == '__main__':
     country = Country.INDIA
-    load_sird_data(country)
+    link_df = load_links(country)
+
+    sird_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
+                               increase=True, daily=True, remove_zero=True,
+                               smoothing=True, window=5, divide=False, info_type=InfoType.SIRD)
+    test_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
+                               increase=False, daily=True, remove_zero=True,
+                               smoothing=True, window=5, divide=False, info_type=InfoType.TEST)
+    delay = 1
+
+    load_debug_dict(country, sird_info.get_hash(), test_info.get_hash(), delay)

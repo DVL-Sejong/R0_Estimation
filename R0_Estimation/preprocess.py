@@ -1,14 +1,41 @@
-from R0_Estimation.datatype import Country
-from R0_Estimation.io import load_number_of_tests, load_sird_data, load_regions
+from R0_Estimation.datatype import Country, PreprocessInfo, get_country_name, InfoType
+from R0_Estimation.io import load_number_of_tests, load_sird_data, load_regions, load_links, load_rho_df
+from R0_Estimation.io import save_delayed_number_of_tests, load_delayed_number_of_tests
 from R0_Estimation.io import save_rho_df, load_first_confirmed_date, save_tg_df
-from R0_Estimation.util import get_period
+from R0_Estimation.util import get_period, generate_dataframe
 from datetime import datetime
 
-import pandas as pd
+
+def get_delayed_number_of_tests(country, test_info, delay):
+    delayed_tests_df = load_delayed_number_of_tests(country, test_info, delay)
+    if delayed_tests_df is not None:
+        return delayed_tests_df
+
+    print(f'get number of tests of {get_country_name(country)}')
+
+    if delay == 0:
+        raise ValueError('delay can not be zero!')
+
+    test_num_df = load_number_of_tests(country, test_info)
+
+    if delay == 1:
+        save_delayed_number_of_tests(test_num_df, country, test_info, delay)
+        return test_num_df
+
+    delayed_num_df = test_num_df.copy().iloc[:, delay:]
+    for region, row in test_num_df.iterrows():
+        for i, date in enumerate(test_num_df.columns):
+            if i < delay: continue
+
+            new_value = sum([row[test_num_df.columns[i - j]] for j in range(delay)])
+            delayed_num_df.loc[region, date] = new_value
+
+    save_delayed_number_of_tests(delayed_num_df, country, test_info, delay)
+    return delayed_num_df
 
 
-def get_dataset_dates(country):
-    num_test_df = load_number_of_tests(country)
+def get_dataset_dates(country, sird_info, test_info, delay):
+    num_test_df = get_delayed_number_of_tests(country, test_info, delay)
     columns = num_test_df.columns.to_list()
 
     start_date1 = None
@@ -24,7 +51,7 @@ def get_dataset_dates(country):
     first_dates = [datetime.strptime(elem, '%Y-%m-%d') for elem in first_dates]
     start_date2 = min(first_dates)
 
-    sird_hash, sird_dict = load_sird_data(country)
+    sird_dict = load_sird_data(country, sird_info)
     sird_dates = sird_dict[list(sird_dict.keys())[0]].index.tolist()
     start_date3 = datetime.strptime(sird_dates[0], '%Y-%m-%d')
     end_date3 = datetime.strptime(sird_dates[-1], '%Y-%m-%d')
@@ -35,33 +62,32 @@ def get_dataset_dates(country):
     return period
 
 
-def get_rho_df(country):
+def get_rho_df(country, sird_info, test_info, delay=1):
+    rho_df = load_rho_df(country, sird_info, test_info, delay)
+    if rho_df is not None:
+        return rho_df
+
+    print(f'get rho of {get_country_name(country)}')
+    sird_dict = load_sird_data(country, sird_info)
+    test_num_df = get_delayed_number_of_tests(country, test_info, delay)
+
     regions = load_regions(country)
-    dataset_dates = get_dataset_dates(country)
-
-    rho_df = pd.DataFrame(index=regions, columns=dataset_dates)
-    rho_df.index.name = 'regions'
-
-    sird_hash, sird_dict = load_sird_data(country)
-    test_num_df = load_number_of_tests(country)
+    dataset_dates = get_dataset_dates(country, sird_info, test_info, delay)
+    rho_df = generate_dataframe(regions, dataset_dates[delay:], 'regions')
 
     for region in regions:
-        for common_date in dataset_dates:
+        for i, common_date in enumerate(dataset_dates):
             confirmed_value = sird_dict[region].loc[common_date, 'infected']
             test_numbers = test_num_df.loc[region, common_date]
-            rho_value = confirmed_value / test_numbers
-            rho_df.loc[region, common_date] = rho_value
+            rho_df.loc[region, common_date] = confirmed_value / test_numbers
 
-    save_rho_df(country, sird_hash, rho_df)
+    save_rho_df(rho_df, country, sird_info.get_hash(), test_info.get_hash(), delay)
     return rho_df
 
 
 def get_tg_df(country):
-    regions = load_regions(country)
-    tg_df = pd.DataFrame(index=regions, columns=['Tg'])
-    tg_df.index.name = 'regions'
+    tg_df = generate_dataframe(load_regions(country), ['Tg'], 'regions')
     tg_df.loc[:, :] = 6.9
-
     save_tg_df(country, tg_df)
     return tg_df
 
@@ -74,6 +100,15 @@ def get_t_value(country, region, target_date):
 
 
 if __name__ == '__main__':
-    country = Country.INDIA
-    t_value = get_t_value(country, 'West Bengal', '2020-03-19')
-    print(t_value)
+    country = Country.ITALY
+    link_df = load_links(country)
+
+    sird_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
+                               increase=True, daily=True, remove_zero=True,
+                               smoothing=True, window=5, divide=False, info_type=InfoType.SIRD)
+    test_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
+                               increase=False, daily=True, remove_zero=True,
+                               smoothing=True, window=5, divide=False, info_type=InfoType.TEST)
+    delay = 14
+
+    rho_df = get_rho_df(country, sird_info, test_info, delay)
