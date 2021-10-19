@@ -1,5 +1,5 @@
 from R0_Estimation.datatype import Country, PreprocessInfo, InfoType
-from R0_Estimation.io import load_sird_data, load_tg_df, load_regions, save_debug_dict
+from R0_Estimation.io import load_tg_df, load_regions, save_debug_dict, load_preprocessed_data
 from R0_Estimation.io import save_r0_df, load_links
 from R0_Estimation.preprocess import get_t_value, get_rho_df
 from R0_Estimation.util import generate_dataframe
@@ -7,8 +7,7 @@ from R0_Estimation.util import generate_dataframe
 import math
 
 
-def get_empty_dfs_for_debugging(country, sird_info, test_info, delay):
-    rho_df = get_rho_df(country, sird_info, test_info, delay)
+def get_empty_dfs_for_debugging(country, rho_df):
     estimate_dates = rho_df.columns.to_list()
 
     regions = load_regions(country)
@@ -21,26 +20,25 @@ def get_empty_dfs_for_debugging(country, sird_info, test_info, delay):
     return debug_dict
 
 
-def get_estimate_r0_df(country, sird_info, test_info, delay):
-    sird_dict = load_sird_data(country, sird_info)
-    rho_df = get_rho_df(country, sird_info, test_info, delay)
+def get_estimate_r0_df(country, pre_info, test_info):
+    pre_dict = load_preprocessed_data(country, pre_info)
+    rho_df = get_rho_df(country, pre_info, test_info)
     tg_df = load_tg_df(country)
 
     regions = load_regions(country)
     estimate_dates = rho_df.columns.to_list()
 
-    debug_dict = get_empty_dfs_for_debugging(country, sird_info, test_info, delay)
+    debug_dict = get_empty_dfs_for_debugging(country, rho_df)
     r0_df = generate_dataframe(regions, estimate_dates, 'regions')
 
     for region in regions:
         print(f'estmate r0 value in {region}')
-        region_sird = sird_dict[region]
+        region_pre = pre_dict[region]
 
         for estimate_date in estimate_dates:
             rho = rho_df.loc[region, estimate_date]
-            infected = region_sird.loc[estimate_date, 'infected']
 
-            y_t = infected * 2
+            y_t = region_pre.loc[estimate_date, 'active']
             debug_dict['yt'].loc[region, estimate_date] = y_t
 
             t_value = get_t_value(country, region, estimate_date)
@@ -56,21 +54,20 @@ def get_estimate_r0_df(country, sird_info, test_info, delay):
             r0 = 1 + lamda * tg + rho * (1 - rho) * pow(lamda * tg, 2)
             r0_df.loc[region, estimate_date] = r0
 
-    save_debug_dict(debug_dict, country, sird_info.get_hash(), test_info.get_hash(), delay)
-    save_r0_df(r0_df, country, sird_info.get_hash(), test_info.get_hash(), delay)
+    save_debug_dict(debug_dict, country, pre_info.get_hash(), test_info.get_hash())
+    save_r0_df(r0_df, country, pre_info.get_hash(), test_info.get_hash())
     return r0_df
 
 
 if __name__ == '__main__':
-    country = Country.INDIA
+    country = Country.ITALY
     link_df = load_links(country)
 
-    sird_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
+    pre_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
                               increase=True, daily=True, remove_zero=True,
-                              smoothing=True, window=5, divide=False, info_type=InfoType.SIRD)
+                              smoothing=True, window=5, divide=False, info_type=InfoType.PRE)
     test_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
-                               increase=False, daily=True, remove_zero=True,
+                               increase=True, daily=True, remove_zero=True,
                                smoothing=True, window=5, divide=False, info_type=InfoType.TEST)
-    delay = 7
 
-    r0_df = get_estimate_r0_df(country, sird_info, test_info, delay)
+    r0_df = get_estimate_r0_df(country, pre_info, test_info)
