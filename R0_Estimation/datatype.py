@@ -13,8 +13,9 @@ class Country(Enum):
 
 
 class InfoType(Enum):
-    SIRD = 0
+    PRE = 0
     TEST = 1
+    DEBUG = 2
 
 
 @dataclass
