@@ -55,6 +55,8 @@ class PreprocessInfo:
         self.divide = divide
         self.info_type = info_type
 
+        self.check_valid()
+
     def __repr__(self):
         representation = f'PreprocessInfo(country: {self._country.name}, start: {self._start}, end: {self._end}, '
         representation += f'increase: {self._increase}, daily: {self._daily}, remove_zero: {self._remove_zero}, '
@@ -183,6 +185,13 @@ class PreprocessInfo:
     def get_hash(self):
         hash_key = hashlib.sha1(self.__repr__().encode()).hexdigest()[:6]
         return hash_key
+
+    def check_valid(self):
+        if self.info_type is InfoType.TEST:
+            if self.increase is True:
+                raise ValueError(f'increase cannot be True for test number dataset!')
+            if self.divide is True:
+                raise ValueError(f'divide cannot be True for test number dataset!')
 
 
 def get_country_name(country):
