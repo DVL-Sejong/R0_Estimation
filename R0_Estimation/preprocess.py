@@ -78,7 +78,7 @@ if __name__ == '__main__':
                                increase=True, daily=True, remove_zero=True,
                                smoothing=True, window=5, divide=False, info_type=InfoType.PRE)
     test_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
-                               increase=True, daily=True, remove_zero=True,
+                               increase=False, daily=True, remove_zero=True,
                                smoothing=True, window=5, divide=False, info_type=InfoType.TEST)
 
     rho_df = get_rho_df(country, pre_info, test_info)
