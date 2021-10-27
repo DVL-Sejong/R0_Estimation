@@ -14,10 +14,8 @@ $ git clone https://github.com/DVL-Sejong/R0_Estimation.git
 $ cd R0_Estimation
 $ python main.py
 ```
-
 - Arguments
   - country: Italy, India, US, China are available
-  - y_frames: Number of y frames for generating dataset
   
 - Results are saved under `results\country_name\` and `settiings\`
 
