@@ -57,17 +57,3 @@ def get_estimate_r0_df(country, pre_info, test_info):
     save_debug_dict(debug_dict, country, pre_info.get_hash(), test_info.get_hash())
     save_r0_df(r0_df, country, pre_info.get_hash(), test_info.get_hash())
     return r0_df
-
-
-if __name__ == '__main__':
-    country = Country.ITALY
-    link_df = load_links(country)
-
-    pre_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
-                              increase=True, daily=True, remove_zero=True,
-                              smoothing=True, window=5, divide=False, info_type=InfoType.PRE)
-    test_info = PreprocessInfo(country=country, start=link_df['start_date'], end=link_df['end_date'],
-                               increase=False, daily=True, remove_zero=True,
-                               smoothing=True, window=5, divide=False, info_type=InfoType.TEST)
-
-    r0_df = get_estimate_r0_df(country, pre_info, test_info)
