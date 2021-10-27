@@ -1,24 +1,32 @@
 # R0_Estimation
 Repository for estimating R0 of COVID-19
 
+### Dataset
 
-
-### 코드 참고
-
-[코드 링크](https://github.com/yijunwang0805/covid-19/blob/master/Estimation%20of%20R0_Yijun/Estimation%20of%20R0.ipynb)
+Dataset for this repository can be downloaded [here](https://github.com/DVL-Sejong/COVID_DataProcessor). You must download data and preprocess the data for the model. Dataset for the model should be under `\dataset\country_name`.
 
 
 
-### 참고 논문
+### R0 Estimation
 
-```markdown
-@techreport{fernandez2020estimating,
-  title={Estimating and simulating a SIRD model of COVID-19 for many countries, states, and cities},
-  author={Fern{\'a}ndez-Villaverde, Jes{\'u}s and Jones, Charles I},
-  year={2020},
-  institution={National Bureau of Economic Research}
-}
 ```
+$ git clone https://github.com/DVL-Sejong/R0_Estimation.git
+$ cd R0_Estimation
+$ python main.py
+```
+
+- Arguments
+  - country: Italy, India, US, China are available
+  - y_frames: Number of y frames for generating dataset
+  
+- Results are saved under `results\country_name\` and `settiings\`
+
+  
+
+### Citation
+
+This repository is based on this paper:
+
 
 ```markdown
 @article{zhou2020preliminary,
@@ -30,18 +38,6 @@ Repository for estimating R0 of COVID-19
   pages={3--7},
   year={2020},
   publisher={Wiley Online Library}
-}
-```
-
-```markdown
-@article{fernandez2021statistical,
-  title={Statistical data driven approach of COVID-19 in Ecuador: R0 and Rt estimation via new method},
-  author={Fern{\'a}ndez-Naranjo, Ra{\'u}l Patricio and V{\'a}sconez-Gonz{\'a}lez, Eduardo and Simba{\~n}a-Rivera, Katherine and G{\'o}mez-Barreno, Lenin and Izquierdo-Condoy, Juan S and Cevallos-Robalino, Dom{\'e}nica and Ortiz-Prado, Esteban},
-  journal={Infectious Disease Modelling},
-  volume={6},
-  pages={232--243},
-  year={2021},
-  publisher={Elsevier}
 }
 ```
 
